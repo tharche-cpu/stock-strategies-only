@@ -125,8 +125,16 @@ def build_context_from_bundle(
 
 
 def get_price_history_cached(stock_id: str, start: str, as_of: str | None = None) -> pd.DataFrame:
-    """走快取的個股日 K（取代 data.get_price_history 在 context 內的用途）。"""
+    """走快取的個股日 K（取代 data.get_price_history 在 context 內的用途）。
+    FinMind 空資料時自動以 twstock 備援。"""
     df = fetch_finmind_cached("TaiwanStockPrice", stock_id, start, end_date=as_of)
+    if df.empty:
+        try:
+            from .twstock_source import get_twstock_price_history
+
+            df = get_twstock_price_history(stock_id, start, as_of=as_of)
+        except Exception:
+            return pd.DataFrame()
     if df.empty:
         return df
     df = df.rename(columns={"max": "high", "min": "low", "Trading_Volume": "volume"})

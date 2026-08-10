@@ -19,6 +19,7 @@ except ImportError:
 from stock_strategies.night_session import get_night_session
 from stock_strategies.sheet import read_latest_signals
 from stock_strategies.notify import send_telegram, format_premarket
+from stock_strategies.twstock_source import get_realtime_quotes
 
 
 REQUIRED_ENV = [
@@ -63,9 +64,23 @@ def main():
         signals = []
     print(f"  → {len(signals)} 筆")
 
+    # 2b. 抓 BUY/WATCH 個股的即時報價（twstock 直連證交所，盤前參考用）
+    quotes = {}
+    actionable_ids = sorted({
+        str(s.get("stock_id", "")).strip()
+        for s in signals
+        if str(s.get("action", "")).upper() in ("BUY", "WATCH")
+    })
+    if actionable_ids:
+        print("取得即時報價...")
+        quotes = get_realtime_quotes(actionable_ids)
+        print(f"  → {len(quotes)} 檔有報價")
+    else:
+        print("  → 無 BUY/WATCH 訊號，跳過即時報價")
+
     # 3. 發送 Telegram 盤前快報
     print("發送 Telegram 盤前快報...")
-    send_telegram(format_premarket(night, signals))
+    send_telegram(format_premarket(night, signals, quotes))
     print("✅ 完成")
 
 

@@ -163,13 +163,21 @@ def get_shareholding(stock_id: str, start: str, as_of: str | None = None) -> pd.
 
 def get_stock_info(refresh: bool = False) -> pd.DataFrame:
     """全市場靜態資料（一次抓、長快取）。回 stock_id, stock_name,
-       industry_category, market_type。"""
+    industry_category, market_type。
+    FinMind 掛掉時以 twstock.codes 備援（同 schema）。"""
     try:
         df = fetch_finmind_cached(
             "TaiwanStockInfo", "", "1990-01-01", fresh_days=7, force_refresh=refresh
         )
     except FinMindRateLimitError:
-        return pd.DataFrame()
+        df = pd.DataFrame()
+    if df.empty:
+        try:
+            from .twstock_source import get_stock_info_from_codes
+
+            df = get_stock_info_from_codes()
+        except Exception:
+            df = pd.DataFrame()
     if df.empty or not _require_cols(df, ["stock_id"]):
         return pd.DataFrame()
     df = df.rename(columns={"type": "market_type"})

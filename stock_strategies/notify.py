@@ -379,11 +379,12 @@ def _format_volume_block(s: dict) -> list[str]:
     return lines
 
 
-def format_premarket(night: dict | None, signals: list[dict]) -> str:
-    """夜盤盤前快報：夜盤方向預判 + 疊加昨日 BUY/WATCH 訊號。
+def format_premarket(night: dict | None, signals: list[dict], quotes: dict | None = None) -> str:
+    """夜盤盤前快報：夜盤方向預判 + 疊加昨日 BUY/WATCH 訊號 + 即時報價。
 
     night   — night_session.get_night_session() 的回傳（可能為 None）
     signals — sheet.read_latest_signals() 的回傳（Sheet 扁平 dict，最新在最前）
+    quotes  — twstock_source.get_realtime_quotes() 的回傳（{stock_id: {...}}，可為 None）
     """
     from .night_session import tailwind_tag, bias_guidance
 
@@ -429,6 +430,23 @@ def format_premarket(night: dict | None, signals: list[dict]) -> str:
     else:
         lines.append("📋 昨日無 BUY/WATCH 訊號（或尚未跑過選股）")
     lines.append("")
+
+    # === 即時報價（twstock 直連證交所，08:00 盤前參考）===
+    if quotes:
+        lines.append("⚡ *盤前即時報價*")
+        for s in (actionable or [])[:12]:
+            q = quotes.get(str(s.get("stock_id", "")).strip())
+            if not q:
+                continue
+            chg = q.get("change") or 0
+            arrow = "🔺" if chg > 0 else ("🔻" if chg < 0 else "➖")
+            pct = (chg / q["prev_close"] * 100) if q.get("prev_close") else 0
+            lines.append(
+                f"{arrow} {q['stock_id']} {q.get('name') or s.get('name', '')} "
+                f"{q['price']:.2f} ({chg:+.2f}, {pct:+.2f}%) "
+                f"量 {q['volume']:,} | {q.get('time', '')}"
+            )
+        lines.append("")
 
     lines.append("💡 _夜盤僅領先參考，開盤後仍以實際量價為準_")
     return "\n".join(lines)

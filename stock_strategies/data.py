@@ -7,6 +7,7 @@ import pandas as pd
 
 from .config import FINMIND_URL
 from .cache import fetch_finmind_cached
+from .twstock_source import get_twstock_price_history
 
 
 def fetch_finmind(
@@ -54,6 +55,12 @@ def fetch_finmind(
 def get_price_history(stock_id: str, years: int = 3) -> pd.DataFrame:
     start = (datetime.now() - timedelta(days=365 * years + 60)).strftime("%Y-%m-%d")
     df = fetch_finmind_cached("TaiwanStockPrice", stock_id, start)
+    if df.empty:
+        # FinMind 掛掉/空資料 → twstock 備援（同 schema，免 token）
+        try:
+            df = get_twstock_price_history(stock_id, start)
+        except Exception:
+            df = pd.DataFrame()
     if df.empty:
         return df
     df = df.rename(columns={"max": "high", "min": "low", "Trading_Volume": "volume"})
