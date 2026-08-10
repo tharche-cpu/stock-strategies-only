@@ -22,3 +22,6 @@ speech-to-text-*.json
 
 # FinMind 本地快取（parquet）
 .cache/
+
+# Local scheduled-task logs
+logs/
