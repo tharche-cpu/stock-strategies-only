@@ -34,9 +34,14 @@
 
 ### 評分加權
 
-- `weight_fundamental` / `weight_technical` / `weight_backtest` (0-1) — 三者加總應 = 1
+- `weight_fundamental` / `weight_technical` / `weight_backtest` / `weight_chips` (0-1) — 加權平均制，缺籌碼資料時自動排除該項
 - `min_total_score_for_buy` (0-100) — 總分達多少才考慮 BUY
 - `min_tech_score_for_buy` (0-100) — 技術分至少要達多少才考慮 BUY
+
+### 籌碼面（twchips：證交所法人/融資融券）
+
+- `use_chips` (bool) — 是否把籌碼面分數納入綜合分（法人買賣超 + 融資融券）
+- `weight_chips` (0-0.5) — 籌碼面權重，預設 0.15
 
 ### 技術訊號開關（影響評分）
 

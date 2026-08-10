@@ -43,8 +43,11 @@ _PARAM_DEFAULTS: dict = {
     "weight_fundamental": 0.3,
     "weight_technical": 0.3,
     "weight_backtest": 0.4,
+    "weight_chips": 0.15,
     "min_total_score_for_buy": CONFIG["min_total_score_for_buy"],
     "min_tech_score_for_buy": 50,
+    # 籌碼面（twchips：證交所法人/融資融券）
+    "use_chips": True,
     # 技術訊號開關
     "use_ma_alignment": True,
     "use_bollinger_bounce": True,
@@ -142,6 +145,7 @@ def validate_strategy(data: dict) -> dict:
     clean_params["min_tech_score_for_signal"] = max(0, min(100, clean_params["min_tech_score_for_signal"]))
     clean_params["backtest_years"] = max(1, min(10, clean_params["backtest_years"]))
     clean_params["hold_days"] = max(1, min(120, clean_params["hold_days"]))
+    clean_params["weight_chips"] = max(0, min(0.5, clean_params["weight_chips"]))
 
     return {
         "id": sid,

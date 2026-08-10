@@ -9,6 +9,7 @@ from .data import get_fundamental, get_price_history
 from .indicators import add_indicators, tech_score_at
 from .backtest import backtest
 from .volume import detect_patterns, verdict as volume_verdict
+from .chips import chip_snapshot
 from .loader import merge_params
 
 
@@ -69,15 +70,25 @@ def evaluate(stock_id: str, name: str, strategy: dict | None = None) -> Optional
         winrate = bt.get("winrate") or 0.5
         bt_score = winrate * 100
 
+        chip_component = None
+        if params.get("use_chips"):
+            chips_date = pd.Timestamp(px["date"].iloc[-1]).strftime("%Y-%m-%d")
+            chip_component = chip_snapshot(stock_id, as_of=chips_date)
+
         wf = params["weight_fundamental"]
         wt = params["weight_technical"]
         wb = params["weight_backtest"]
-        # 正規化權重
-        wsum = wf + wt + wb
-        if wsum > 0:
-            wf, wt, wb = wf / wsum, wt / wsum, wb / wsum
+        wc = params.get("weight_chips", 0.0)
 
-        signal_score = round(wf * fund_score + wt * tech_score + wb * bt_score, 1)
+        # 加權平均（含籌碼面；籌碼資料缺時排除，不拖累原分數）
+        weighted = [(fund_score, wf), (tech_score, wt), (bt_score, wb)]
+        if chip_component and chip_component.get("score") is not None:
+            weighted.append((chip_component["score"], wc))
+        wsum = sum(w for _, w in weighted)
+        if wsum > 0:
+            signal_score = round(sum(s * w for s, w in weighted) / wsum, 1)
+        else:
+            signal_score = 0.0
 
         fund_gate = (not params["fundamental_pass_required"]) or fund_pass
         if (
@@ -111,6 +122,16 @@ def evaluate(stock_id: str, name: str, strategy: dict | None = None) -> Optional
             result["risk_notes"].append("已突破布林上軌，追高風險")
         if "放量滯漲" in vp["patterns"]:
             result["risk_notes"].append("偵測到放量滯漲，高檔爆量疑似出貨")
+        if chip_component:
+            if chip_component.get("score") is None:
+                result["risk_notes"].append("籌碼資料暫時缺")
+            else:
+                if (chip_component.get("total_net") or 0) < 0:
+                    result["risk_notes"].append("三大法人賣超")
+                mprev = chip_component.get("margin_prev") or 0
+                mchg = chip_component.get("margin_chg") or 0
+                if mprev > 0 and mchg / mprev > 0.05:
+                    result["risk_notes"].append("融資單日暴增，過熱風險")
 
         chg_5d = (latest["close"] / px.iloc[-6]["close"] - 1) * 100 if len(px) >= 6 else 0
         chg_20d = (latest["close"] / px.iloc[-21]["close"] - 1) * 100 if len(px) >= 21 else 0
@@ -138,6 +159,7 @@ def evaluate(stock_id: str, name: str, strategy: dict | None = None) -> Optional
                 "volume_details": vp["details"],
                 "volume_bonus": vp["bonus"],
                 "volume_verdict": volume_verdict(vp["patterns"]),
+                "chips": chip_component or {"score": None, "note": "use_chips 未啟用"},
             },
             "trend": {
                 "chg_5d": round(chg_5d, 2),

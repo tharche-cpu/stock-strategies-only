@@ -20,9 +20,11 @@
     "weight_fundamental": 0.4,
     "weight_technical": 0.25,
     "weight_backtest": 0.35,
+    "weight_chips": 0.15,
     "min_total_score_for_buy": 75,
     "min_tech_score_for_buy": 55,
 
+    "use_chips": true,
     "use_ma_alignment": true,
     "use_bollinger_bounce": true,
     "use_kd_golden_cross": true,

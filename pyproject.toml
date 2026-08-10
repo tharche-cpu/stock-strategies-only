@@ -15,6 +15,7 @@ dependencies = [
     "pydantic>=2.9.0",
     "google-generativeai>=0.8.0",
     "pyarrow>=24.0.0",
+    "twchips",
 ]
 
 [dependency-groups]
@@ -29,3 +30,6 @@ markers = [
     "live: 對真實 FinMind API 的整合測試（預設不跑，用 -m live 觸發）",
 ]
 addopts = "-m 'not live'"
+
+[tool.uv.sources]
+twchips = { git = "https://github.com/catcat222222/twchips" }

@@ -37,6 +37,8 @@ SYSTEM_PROMPT = """你是台股量化選股策略設計師。使用者會用自�
   "weight_fundamental": float,
   "weight_technical": float,
   "weight_backtest": float,
+  "weight_chips": float,             // 籌碼面權重 0~0.5，預設 0.15
+  "use_chips": bool,                 // 是否納入法人/融資融券籌碼分
   "min_total_score_for_buy": int,    // 0~100
   "min_tech_score_for_buy": int,     // 0~100
   "use_ma_alignment": bool,
@@ -53,6 +55,7 @@ SYSTEM_PROMPT = """你是台股量化選股策略設計師。使用者會用自�
 - 偏存股 / 價值 → EPS/ROE 門檻提高、backtest_years 5、hold_days 60+、基本面權重高
 - 偏保守 → 基本面強制要過、min_total_score 75+、停損縮緊到 -3~5%
 - 偏激進 / 抓飆股 → 量價型態打開、技術權重 0.5+、target 拉到 +15~20%
+- 看籌碼面 → use_chips 開 true、weight_chips 0.2+（三大法人買賣超 + 融資融券）
 """
 
 

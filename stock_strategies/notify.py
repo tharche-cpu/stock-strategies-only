@@ -65,6 +65,18 @@ def _format_stock_detail(s: dict, show_trend: bool = True) -> list[str]:
     lines.append(
         f"基本面{fund} | 技術分 {c.get('tech_score', 'N/A')} | 勝率 {wr} ({c.get('backtest_samples', 0)}次)"
     )
+    ch = c.get("chips") or {}
+    if ch.get("score") is not None:
+        parts = []
+        if ch.get("total_net") is not None:
+            parts.append(f"法人 {ch['total_net']:+,.0f}")
+        if ch.get("foreign_net") is not None:
+            parts.append(f"外資 {ch['foreign_net']:+,.0f}")
+        if ch.get("trust_net") is not None:
+            parts.append(f"投信 {ch['trust_net']:+,.0f}")
+        if ch.get("margin_chg") is not None:
+            parts.append(f"融資 {ch['margin_chg']:+,.0f}")
+        lines.append(f"🧲 籌碼 {ch['score']}分 | " + " | ".join(parts))
     if c.get("tech_signals"):
         lines.append(f"觸發: {', '.join(c['tech_signals'])}")
     if s.get("risk_notes"):
@@ -193,7 +205,7 @@ def format_messages(
     msg1.append("📋 *策略規則*")
     msg1.append(
         "基本面(EPS>5,ROE>15) + 技術面(均線/布林/KD/MACD) + 3年回測\n"
-        f"綜合 = 基本面30% + 技術30% + 回測40%\n"
+        f"綜合 = 基本面30% + 技術30% + 回測40% + 籌碼15%\n"
         f"BUY≥65(三關全過) | WATCH≥50\n"
         f"停損{CONFIG['stop_loss']*100:.0f}% / 停利{CONFIG['target_return']*100:.0f}% / 持有{CONFIG['hold_days']}日"
     )
