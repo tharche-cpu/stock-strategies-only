@@ -6,12 +6,19 @@ from google.oauth2.service_account import Credentials
 
 
 def get_gsheet():
-    creds_json = os.environ["GOOGLE_CREDS_JSON"]
-    creds_dict = json.loads(creds_json)
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive",
     ]
+    creds_json = os.environ.get("GOOGLE_CREDS_JSON")
+    if not creds_json:
+        creds_file = os.environ.get("GOOGLE_CREDS_FILE")
+        if not creds_file:
+            raise KeyError("GOOGLE_CREDS_JSON")
+        with open(creds_file, "r", encoding="utf-8") as f:
+            creds_dict = json.load(f)
+    else:
+        creds_dict = json.loads(creds_json)
     creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     gc = gspread.authorize(creds)
     return gc.open_by_key(os.environ["GOOGLE_SHEET_ID"])

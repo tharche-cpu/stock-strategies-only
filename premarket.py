@@ -30,8 +30,16 @@ REQUIRED_ENV = [
 ]
 
 
-def main():
+def _missing_env() -> list[str]:
+    """GOOGLE_CREDS 接受 JSON 字串或檔案路徑任一即可。"""
     missing = [k for k in REQUIRED_ENV if not os.environ.get(k)]
+    if "GOOGLE_CREDS_JSON" in missing and os.environ.get("GOOGLE_CREDS_FILE"):
+        missing.remove("GOOGLE_CREDS_JSON")
+    return missing
+
+
+def main():
+    missing = _missing_env()
     if missing:
         print(f"❌ 缺少環境變數: {missing}", file=sys.stderr)
         sys.exit(1)
