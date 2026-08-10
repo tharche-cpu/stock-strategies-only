@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
+import numpy as np
 import pandas as pd
 
 from .config import CONFIG
@@ -9,6 +10,19 @@ from .indicators import add_indicators, tech_score_at
 from .backtest import backtest
 from .volume import detect_patterns, verdict as volume_verdict
 from .loader import merge_params
+
+
+def _to_native(v):
+    """遞迴把 numpy 純量轉成原生 Python 型別（JSON 可序列化）"""
+    if isinstance(v, dict):
+        return {k: _to_native(x) for k, x in v.items()}
+    if isinstance(v, list):
+        return [_to_native(x) for x in v]
+    if isinstance(v, tuple):
+        return tuple(_to_native(x) for x in v)
+    if isinstance(v, np.generic):
+        return v.item()
+    return v
 
 
 def evaluate(stock_id: str, name: str, strategy: dict | None = None) -> Optional[dict]:
@@ -38,7 +52,7 @@ def evaluate(stock_id: str, name: str, strategy: dict | None = None) -> Optional
         if len(px) < 100:
             result["action"] = "SKIP"
             result["risk_notes"].append("價格資料不足")
-            return result
+            return _to_native(result)
 
         px = add_indicators(px)
         latest = px.iloc[-1]
@@ -140,9 +154,9 @@ def evaluate(stock_id: str, name: str, strategy: dict | None = None) -> Optional
             "position_size_pct": round(position_pct, 1),
             "entry_rule": entry_rule,
         })
-        return result
+        return _to_native(result)
 
     except Exception as e:
         result["action"] = "ERROR"
         result["risk_notes"].append(f"錯誤: {str(e)[:80]}")
-        return result
+        return _to_native(result)
