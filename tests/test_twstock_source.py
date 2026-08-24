@@ -97,7 +97,7 @@ def test_price_history_normalized(monkeypatch):
     fake = _fake_twstock(None, {"2330": days})
     monkeypatch.setattr(tws, "_import_twstock", lambda: fake)
     df = tws.get_twstock_price_history("2330", "2026-08-01")
-    assert list(df.columns) == ["date", "open", "high", "low", "close", "volume"]
+    assert list(df.columns) == ["date", "open", "high", "low", "close", "volume", "turnover"]
     assert len(df) == 3
     assert df.iloc[-1]["close"] == 2405
     assert df.iloc[-1]["volume"] == 36782301

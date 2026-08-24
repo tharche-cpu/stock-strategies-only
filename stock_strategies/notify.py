@@ -61,9 +61,15 @@ def _format_stock_detail(s: dict, show_trend: bool = True) -> list[str]:
     )
     lines.append(
         f"風報比 1:{s['risk_reward_ratio']} | 建議部位 {s['position_size_pct']}%"
+        + (
+            f"（約 {s['suggested_lots']} 張）"
+            if s.get("suggested_lots")
+            else "（本金內不足 1 張，僅能零股）"
+        )
     )
     lines.append(
-        f"基本面{fund} | 技術分 {c.get('tech_score', 'N/A')} | 勝率 {wr} ({c.get('backtest_samples', 0)}次)"
+        f"基本面{fund} | 技術分 {c.get('tech_score', 'N/A')} | "
+        f"勝率 {wr} ({c.get('backtest_samples', 0)}次, 已扣成本)"
     )
     ch = c.get("chips") or {}
     if ch.get("score") is not None:
@@ -207,7 +213,8 @@ def format_messages(
         "基本面(EPS>5,ROE>15) + 技術面(均線/布林/KD/MACD) + 3年回測\n"
         f"綜合 = 基本面30% + 技術30% + 回測40% + 籌碼15%\n"
         f"BUY≥65(三關全過) | WATCH≥50\n"
-        f"停損{CONFIG['stop_loss']*100:.0f}% / 停利{CONFIG['target_return']*100:.0f}% / 持有{CONFIG['hold_days']}日"
+        f"停損{CONFIG['stop_loss']*100:.0f}% / 停利{CONFIG['target_return']*100:.0f}% / 持有{CONFIG['hold_days']}日\n"
+        "_回測已扣手續費+證交稅、樣本不重疊、漲停訊號剔除；除權息還原價計算_"
     )
     messages.append("\n".join(msg1))
 

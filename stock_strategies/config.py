@@ -32,6 +32,13 @@ CONFIG = {
     "stop_loss": 0.08,
     "min_tech_score_for_signal": 60,
     "min_total_score_for_buy": 65,
+    # 交易成本（回測淨報酬 = 毛報酬 − 來回成本）
+    "fee_rate": 0.001425,             # 手續費單邊
+    "tax_rate": 0.003,                # 證交稅（賣出）
+    # 可執行性門檻
+    "min_avg_turnover": 10_000_000,   # 20 日均成交金額下限（元），低於 → SKIP 流動性不足
+    # 張數換算用本金
+    "capital": 300_000,               # 建議部位試算本金（元）
     # 夜盤開盤方向分類門檻（漲跌幅 %）
     "night_gap_big": 1.5,    # |漲跌幅| ≥ 1.5% → 大漲 / 大跌
     "night_gap_small": 0.5,  # 0.5 ~ 1.5% → 小漲 / 小跌；< 0.5% → 平盤

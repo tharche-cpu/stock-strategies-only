@@ -48,6 +48,11 @@ _PARAM_DEFAULTS: dict = {
     "min_tech_score_for_buy": 50,
     # 籌碼面（twchips：證交所法人/融資融券）
     "use_chips": True,
+    # 交易成本與可執行性
+    "fee_rate": CONFIG["fee_rate"],
+    "tax_rate": CONFIG["tax_rate"],
+    "min_avg_turnover": CONFIG["min_avg_turnover"],
+    "capital": CONFIG["capital"],
     # 技術訊號開關
     "use_ma_alignment": True,
     "use_bollinger_bounce": True,

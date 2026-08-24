@@ -26,6 +26,44 @@ def _to_native(v):
     return v
 
 
+def _liquidity_avg_turnover(px: pd.DataFrame, days: int = 20) -> Optional[float]:
+    """近 N 日平均成交金額（元）；無資料回 None。"""
+    if "turnover" not in px.columns or len(px) == 0:
+        return None
+    tail = px.tail(days)
+    avg = pd.to_numeric(tail["turnover"], errors="coerce").mean()
+    return float(avg) if pd.notna(avg) else None
+
+
+def _benchmark_0050(px: pd.DataFrame, years: int) -> Optional[float]:
+    """同期買進持有 0050 的報酬（與個股資料同區間）。"""
+    try:
+        bench = get_price_history("0050", years)
+        if bench.empty or len(bench) < 2:
+            return None
+        start_d = pd.to_datetime(px["date"].iloc[0])
+        end_d = pd.to_datetime(px["date"].iloc[-1])
+        b = bench[
+            (pd.to_datetime(bench["date"]) >= start_d)
+            & (pd.to_datetime(bench["date"]) <= end_d)
+        ]
+        if len(b) < 2:
+            return None
+        first = float(b["close"].iloc[0])
+        last = float(b["close"].iloc[-1])
+        return last / first - 1 if first > 0 else None
+    except Exception:
+        return None
+
+
+def _suggested_lots(entry_price: float, position_pct: float, capital: float) -> int:
+    """依本金與建議部位 % 換算整股張數（1 張 = 1000 股）。"""
+    if entry_price <= 0:
+        return 0
+    budget = capital * position_pct / 100.0
+    return int(budget // (entry_price * 1000))
+
+
 def evaluate(stock_id: str, name: str, strategy: dict | None = None) -> Optional[dict]:
     """評估一檔股票。strategy 為策略 dict（含 params），不給就用預設值。"""
     params = merge_params(strategy)
@@ -49,10 +87,19 @@ def evaluate(stock_id: str, name: str, strategy: dict | None = None) -> Optional
             and min(roe_vals) > params["roe_threshold"]
         )
 
-        px = get_price_history(stock_id, params["backtest_years"])
+        px = get_price_history(stock_id, params["backtest_years"], adjusted=True)
         if len(px) < 100:
             result["action"] = "SKIP"
             result["risk_notes"].append("價格資料不足")
+            return _to_native(result)
+
+        avg_turnover = _liquidity_avg_turnover(px)
+        if avg_turnover is not None and avg_turnover < params["min_avg_turnover"]:
+            result["action"] = "SKIP"
+            result["risk_notes"].append(
+                f"流動性不足：20日均成交金額 {avg_turnover/10_000:.0f} 萬，"
+                f"低於門檻 {params['min_avg_turnover']/10_000:.0f} 萬"
+            )
             return _to_native(result)
 
         px = add_indicators(px)
@@ -69,6 +116,7 @@ def evaluate(stock_id: str, name: str, strategy: dict | None = None) -> Optional
         tech_score = max(0, min(100, ts["score"] + vp["bonus"]))
         winrate = bt.get("winrate") or 0.5
         bt_score = winrate * 100
+        bench_0050 = _benchmark_0050(px, params["backtest_years"])
 
         chip_component = None
         if params.get("use_chips"):
@@ -107,13 +155,35 @@ def evaluate(stock_id: str, name: str, strategy: dict | None = None) -> Optional
         target_price = round(entry * (1 + params["target_return"]), 2)
         rr = round(params["target_return"] / params["stop_loss"], 2)
         position_pct = min(2.0 / (params["stop_loss"] * 100) * 100, 20.0)
+        lots = _suggested_lots(entry, position_pct, params.get("capital", CONFIG["capital"]))
         entry_rule = (
             f"明日以開盤價進場，停損 -{params['stop_loss']*100:.0f}% / "
             f"停利 +{params['target_return']*100:.0f}%（下方參考價為今日收盤）"
         )
+        if lots == 0:
+            result["risk_notes"].append(
+                f"以本金 {params.get('capital', CONFIG['capital']):,.0f} 元買不足 1 張，僅能零股"
+            )
 
         if bt.get("samples", 0) < 8:
             result["risk_notes"].append(f"回測樣本僅 {bt.get('samples', 0)} 次，統計弱")
+        bt_total = bt.get("total_return")
+        if bt_total is not None and bt_total < 0:
+            result["risk_notes"].append(
+                f"近3年策略淨報酬 {bt_total*100:+.1f}%（已扣成本）為負"
+            )
+        if (
+            bt_total is not None
+            and bench_0050 is not None
+            and bt_total < bench_0050
+        ):
+            result["risk_notes"].append(
+                f"淨報酬落後同期0050（{bt_total*100:+.1f}% vs {bench_0050*100:+.1f}%）"
+            )
+        if bt.get("skipped_limit_up"):
+            result["risk_notes"].append(
+                f"回測 {bt['skipped_limit_up']} 筆訊號因開盤漲停無法成交已剔除"
+            )
         if not fund_pass:
             result["risk_notes"].append("基本面未過門檻")
         if winrate < 0.5:
@@ -155,6 +225,15 @@ def evaluate(stock_id: str, name: str, strategy: dict | None = None) -> Optional
                 "tech_signals": ts["signals"],
                 "backtest_winrate": winrate,
                 "backtest_samples": bt.get("samples", 0),
+                "backtest_total_return": bt.get("total_return"),
+                "backtest_max_drawdown": bt.get("max_drawdown"),
+                "backtest_profit_factor": bt.get("profit_factor"),
+                "backtest_sharpe": bt.get("sharpe"),
+                "benchmark_0050_return": round(bench_0050, 4) if bench_0050 is not None else None,
+                "avg_turnover_20d": (
+                    round(avg_turnover, 0) if avg_turnover is not None else None
+                ),
+                "suggested_lots": lots,
                 "volume_patterns": vp["patterns"],
                 "volume_details": vp["details"],
                 "volume_bonus": vp["bonus"],
@@ -174,6 +253,7 @@ def evaluate(stock_id: str, name: str, strategy: dict | None = None) -> Optional
             "target_price": target_price,
             "risk_reward_ratio": rr,
             "position_size_pct": round(position_pct, 1),
+            "suggested_lots": lots,
             "entry_rule": entry_rule,
         })
         return _to_native(result)

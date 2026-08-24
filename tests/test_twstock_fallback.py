@@ -15,6 +15,7 @@ class _Data:
         self.low = low
         self.close = close
         self.capacity = capacity
+        self.turnover = open * capacity  # 成交金額近似值（測試用）
 
 
 class _FakeStock:

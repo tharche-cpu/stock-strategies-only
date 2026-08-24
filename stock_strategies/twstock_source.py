@@ -83,6 +83,7 @@ def get_twstock_price_history(
                 "low": float(r.low or 0.0),
                 "close": float(r.close or 0.0),
                 "volume": int(r.capacity or 0),
+                "turnover": float(r.turnover or 0.0),
             }
             for r in rows
         ]

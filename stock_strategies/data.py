@@ -52,11 +52,11 @@ def fetch_finmind(
     return pd.DataFrame()
 
 
-def get_price_history(stock_id: str, years: int = 3) -> pd.DataFrame:
+def get_price_history(stock_id: str, years: int = 3, adjusted: bool = False) -> pd.DataFrame:
     start = (datetime.now() - timedelta(days=365 * years + 60)).strftime("%Y-%m-%d")
     df = fetch_finmind_cached("TaiwanStockPrice", stock_id, start)
     if df.empty:
-        # FinMind 掛掉/空資料 → twstock 備援（同 schema，免 token）
+        # FinMind 掛掉/空資料 → twstock 備援（同 schema，免 token；無除權息還原）
         try:
             df = get_twstock_price_history(stock_id, start)
         except Exception:
@@ -64,10 +64,63 @@ def get_price_history(stock_id: str, years: int = 3) -> pd.DataFrame:
     if df.empty:
         return df
     df = df.rename(columns={"max": "high", "min": "low", "Trading_Volume": "volume"})
+    if "Trading_money" in df.columns:
+        df = df.rename(columns={"Trading_money": "turnover"})
     for col in ["open", "high", "low", "close", "volume"]:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
-    return df.sort_values("date").reset_index(drop=True)
+    df = df.sort_values("date").reset_index(drop=True)
+    if adjusted and "open" in df.columns:
+        df = _dividend_adjust(df, stock_id)
+    return df
+
+
+def _dividend_factors(stock_id: str) -> dict:
+    """除息日 → 還原因子 f = (除息前收盤 − 每股股利) / 除息前收盤。
+
+    用 FinMind TaiwanStockDividendResult（免費版可用）。
+    """
+    start = (datetime.now() - timedelta(days=365 * 4 + 60)).strftime("%Y-%m-%d")
+    try:
+        dv = fetch_finmind_cached("TaiwanStockDividendResult", stock_id, start)
+    except Exception:
+        return {}
+    if dv.empty or "before_price" not in dv.columns:
+        return {}
+    factors = {}
+    for _, row in dv.iterrows():
+        d = pd.to_datetime(row["date"])
+        before = pd.to_numeric(pd.Series([row.get("before_price")]), errors="coerce").iloc[0]
+        div_raw = row.get("stock_and_cache_dividend")
+        div = (
+            pd.to_numeric(pd.Series([div_raw]), errors="coerce").iloc[0]
+            if div_raw is not None
+            else float("nan")
+        )
+        if pd.notna(before) and before > 0 and pd.notna(div) and 0 < div < before:
+            factors[d] = float((before - div) / before)
+    return factors
+
+
+def _dividend_adjust(df: pd.DataFrame, stock_id: str) -> pd.DataFrame:
+    """後復權：除息日之前的 OHLC 乘上其後所有除息的累積因子。
+
+    最新價格保持真實價（進場/停損/停利參考價不變），
+    歷史價被縮小 → 除息跳空不再被誤判為跌破均線或觸及停損，
+    且持有跨除息的報酬自動包含股利。
+    """
+    factors = _dividend_factors(stock_id)
+    if not factors:
+        return df
+    dates = pd.to_datetime(df["date"])
+    mult = pd.Series(1.0, index=df.index)
+    for d, f in sorted(factors.items()):
+        mult[dates < d] *= f
+    out = df.copy()
+    for col in ["open", "high", "low", "close"]:
+        if col in out.columns:
+            out[col] = out[col] * mult
+    return out
 
 
 def get_fundamental(stock_id: str) -> dict:
