@@ -58,6 +58,7 @@ _PARAM_DEFAULTS: dict = {
     "use_bollinger_bounce": True,
     "use_kd_golden_cross": True,
     "use_macd_bullish": True,
+    "use_adx_trend": True,
     "use_volume_patterns": True,
     # 大盤濾鏡
     "market_filter_enabled": True,

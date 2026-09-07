@@ -2,6 +2,15 @@ import pandas as pd
 import numpy as np
 
 
+def _talib():
+    """惰性載入 TA-Lib；未安裝/不可用時回 None（不影響既有功能）。"""
+    try:
+        import talib
+        return talib
+    except Exception:
+        return None
+
+
 def add_indicators(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
 
@@ -33,13 +42,29 @@ def add_indicators(df: pd.DataFrame) -> pd.DataFrame:
     ], axis=1).max(axis=1)
     df["atr"] = tr.rolling(14).mean()
 
+    # ── TA-Lib 補充指標（可選；未安裝則留空列）──
+    h, l, c = (
+        df["high"].astype(float).to_numpy(),
+        df["low"].astype(float).to_numpy(),
+        df["close"].astype(float).to_numpy(),
+    )
+    tal = _talib()
+    if tal is not None:
+        df["adx"] = tal.ADX(h, l, c, timeperiod=14)
+        df["rsi"] = tal.RSI(c, timeperiod=14)
+        df["wr"] = tal.WILLR(h, l, c, timeperiod=14)
+    else:
+        df["adx"] = np.nan
+        df["rsi"] = np.nan
+        df["wr"] = np.nan
+
     return df
 
 
 def tech_score_at(row: pd.Series, params: dict | None = None) -> dict:
     """對一天計算技術分 (0-100)。
     params 可包含 use_ma_alignment / use_bollinger_bounce / use_kd_golden_cross /
-    use_macd_bullish 四個布林開關來開關各訊號。
+    use_macd_bullish / use_adx_trend 五個布林開關來開關各訊號。
     """
     if params is None:
         params = {}
@@ -47,9 +72,10 @@ def tech_score_at(row: pd.Series, params: dict | None = None) -> dict:
     use_bb = params.get("use_bollinger_bounce", True)
     use_kd = params.get("use_kd_golden_cross", True)
     use_macd = params.get("use_macd_bullish", True)
+    use_adx = params.get("use_adx_trend", True)
 
     # 開啟的訊號數量決定每個訊號最大分數，讓總分維持 0-100
-    enabled = sum([use_ma, use_bb, use_kd, use_macd]) or 1
+    enabled = sum([use_ma, use_bb, use_kd, use_macd, use_adx]) or 1
     max_per = 100 / enabled
 
     score = 0.0
@@ -82,6 +108,13 @@ def tech_score_at(row: pd.Series, params: dict | None = None) -> dict:
             score += max_per
             signals.append("MACD多頭")
         elif row["macd_hist"] > 0:
+            score += max_per * 0.4
+
+    if use_adx and pd.notna(row["adx"]):
+        if row["adx"] >= 25:
+            score += max_per
+            signals.append("ADX強勢趨勢")
+        elif row["adx"] >= 20:
             score += max_per * 0.4
 
     return {"score": int(round(score)), "signals": signals}

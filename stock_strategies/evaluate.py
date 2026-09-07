@@ -192,6 +192,20 @@ def evaluate(stock_id: str, name: str, strategy: dict | None = None) -> Optional
             result["risk_notes"].append("已突破布林上軌，追高風險")
         if "放量滯漲" in vp["patterns"]:
             result["risk_notes"].append("偵測到放量滯漲，高檔爆量疑似出貨")
+
+        # TA-Lib 指標（可選）：ADX 趨勢 + RSI 動能
+        latest_adx = float(latest.get("adx")) if pd.notna(latest.get("adx")) else None
+        latest_rsi = float(latest.get("rsi")) if pd.notna(latest.get("rsi")) else None
+        if latest_adx is not None:
+            if latest_adx >= 25:
+                result["risk_notes"].append(f"ADX {latest_adx:.0f} 進入強勢趨勢")
+            elif latest_adx < 20:
+                result["risk_notes"].append(f"ADX {latest_adx:.0f} 趨勢偏弱，多看少做")
+        if latest_rsi is not None:
+            if latest_rsi >= 70:
+                result["risk_notes"].append(f"RSI {latest_rsi:.0f} 超買，追高風險")
+            elif latest_rsi <= 30:
+                result["risk_notes"].append(f"RSI {latest_rsi:.0f} 超賣，留意反彈")
         if chip_component:
             if chip_component.get("score") is None:
                 result["risk_notes"].append("籌碼資料暫時缺")
@@ -234,6 +248,9 @@ def evaluate(stock_id: str, name: str, strategy: dict | None = None) -> Optional
                     round(avg_turnover, 0) if avg_turnover is not None else None
                 ),
                 "suggested_lots": lots,
+                "adx": latest_adx,
+                "rsi": latest_rsi,
+                "wr": (float(latest["wr"]) if pd.notna(latest.get("wr")) else None),
                 "volume_patterns": vp["patterns"],
                 "volume_details": vp["details"],
                 "volume_bonus": vp["bonus"],

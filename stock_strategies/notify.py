@@ -71,6 +71,15 @@ def _format_stock_detail(s: dict, show_trend: bool = True) -> list[str]:
         f"基本面{fund} | 技術分 {c.get('tech_score', 'N/A')} | "
         f"勝率 {wr} ({c.get('backtest_samples', 0)}次, 已扣成本)"
     )
+    if c.get("adx") is not None or c.get("rsi") is not None:
+        ta_parts = []
+        if c.get("adx") is not None:
+            ta_parts.append(f"ADX {c['adx']:.0f}")
+        if c.get("rsi") is not None:
+            ta_parts.append(f"RSI {c['rsi']:.0f}")
+        if c.get("wr") is not None:
+            ta_parts.append(f"WR {c['wr']:.0f}")
+        lines.append(f"📊 動能: {' | '.join(ta_parts)}")
     ch = c.get("chips") or {}
     if ch.get("score") is not None:
         parts = []
