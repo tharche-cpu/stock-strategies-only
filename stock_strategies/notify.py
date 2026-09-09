@@ -20,6 +20,24 @@ def send_telegram(text: str):
         print(f"Telegram 送失敗: {r.text}", file=sys.stderr)
 
 
+def send_telegram_photo(caption: str, image_bytes: bytes):
+    """以 sendPhoto 傳送 PNG 圖（multipart）；失敗只印錯誤不中斷。"""
+    try:
+        url = TELEGRAM_API.format(token=os.environ["TELEGRAM_BOT_TOKEN"])[
+            : -len("/sendMessage")
+        ] + "/sendPhoto"
+        r = requests.post(
+            url,
+            data={"chat_id": os.environ["TELEGRAM_CHAT_ID"], "caption": caption},
+            files={"photo": ("chart.png", image_bytes, "image/png")},
+            timeout=30,
+        )
+        if not r.ok:
+            print(f"Telegram sendPhoto 失敗: {r.text}", file=sys.stderr)
+    except Exception as e:
+        print(f"Telegram sendPhoto 例外: {e}", file=sys.stderr)
+
+
 def _trend_emoji(chg: float) -> str:
     if chg > 3:
         return "🔥"

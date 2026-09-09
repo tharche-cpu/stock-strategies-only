@@ -64,6 +64,19 @@ def _suggested_lots(entry_price: float, position_pct: float, capital: float) -> 
     return int(budget // (entry_price * 1000))
 
 
+def _chart_payload(px: pd.DataFrame, lookback: int = 60) -> dict:
+    """近 N 日 close/ma20/adx/rsi 供趨勢圖渲染（JSON 安全）。"""
+    tail = px.tail(lookback)
+    payload: dict = {"dates": [], "close": [], "ma20": [], "adx": [], "rsi": []}
+    for _, r in tail.iterrows():
+        payload["dates"].append(str(pd.to_datetime(r["date"]).date()))
+        payload["close"].append(_to_native(float(r["close"])) if pd.notna(r["close"]) else None)
+        for key in ("ma20", "adx", "rsi"):
+            v = r.get(key)
+            payload[key].append(_to_native(float(v)) if pd.notna(v) else None)
+    return payload
+
+
 def evaluate(stock_id: str, name: str, strategy: dict | None = None) -> Optional[dict]:
     """評估一檔股票。strategy 為策略 dict（含 params），不給就用預設值。"""
     params = merge_params(strategy)
@@ -231,6 +244,7 @@ def evaluate(stock_id: str, name: str, strategy: dict | None = None) -> Optional
         result.update({
             "action": action,
             "signal_score": signal_score,
+            "chart": _chart_payload(px),
             "components": {
                 "fundamental_pass": fund_pass,
                 "eps_min": min(eps_vals) if eps_vals else None,

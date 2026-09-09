@@ -135,6 +135,30 @@ def main():
         send_telegram(msg)
         time.sleep(0.5)
 
+    # 7b. BUY 標的加送趨勢/盤整圖（TA-Lib ADX/RSI，PNG）
+    try:
+        from stock_strategies.chart import render_trend_chart
+        from stock_strategies.notify import send_telegram_photo
+    except Exception:
+        render_trend_chart, send_telegram_photo = None, None
+
+    if render_trend_chart and send_telegram_photo:
+        for r in results:
+            if r.get("action") != "BUY" or not r.get("chart"):
+                continue
+            png = render_trend_chart(
+                r["chart"],
+                title_line=f'{r["stock_id"]} {r.get("name", "")}  ADX/RSI',
+            )
+            if png:
+                caption = (
+                    f"📊 *{r['stock_id']} {r.get('name', '')}* 趨勢/盤整圖\n"
+                    f"綜合 {r['signal_score']} 分 | ADX 強度＝趨勢 vs 盤整\n"
+                    "＿上方收盤+MA20｜中 ADX（紅虛線=趨勢25）｜下 RSI（紅70/綠30）＿"
+                )
+                send_telegram_photo(caption, png)
+                time.sleep(0.5)
+
     # 8. 若有累積的成績單，額外推一則摘要
     if stats and stats["count"] >= 5:
         send_telegram(_format_perf_message(stats))
