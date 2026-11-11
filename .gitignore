@@ -27,5 +27,8 @@ speech-to-text-*.json
 logs/
 *.log
 
-# Next.js build cache
+# Frontend dependencies and generated output
+web/node_modules/
+web/.next/
 web/tsconfig.tsbuildinfo
+web/.env*.local
