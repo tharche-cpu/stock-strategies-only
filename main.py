@@ -151,9 +151,14 @@ def main():
                 title_line=f'{r["stock_id"]} {r.get("name", "")}  ADX/RSI',
             )
             if png:
+                c = r.get("components") or {}
+                adx_part = ""
+                if c.get("adx") is not None:
+                    v = c.get("adx_verdict") or "N/A"
+                    adx_part = f" | ADX {c['adx']:.0f}＝{v}"
                 caption = (
                     f"📊 *{r['stock_id']} {r.get('name', '')}* 趨勢/盤整圖\n"
-                    f"綜合 {r['signal_score']} 分 | ADX 強度＝趨勢 vs 盤整\n"
+                    f"綜合 {r['signal_score']} 分{adx_part}\n"
                     "＿上方收盤+MA20｜中 ADX（紅虛線=趨勢25）｜下 RSI（紅70/綠30）＿"
                 )
                 send_telegram_photo(caption, png)

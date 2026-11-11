@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 
 from stock_strategies import indicators as ind
-from stock_strategies.indicators import add_indicators, tech_score_at
+from stock_strategies.indicators import add_indicators, adx_verdict, tech_score_at
 
 
 def _trend_df(n=80, base=100.0, step=0.5):
@@ -85,3 +85,18 @@ def test_talib_unavailable_returns_nan_columns(monkeypatch):
     row = df.iloc[-1]
     out = tech_score_at(row, {"use_adx_trend": True})
     assert "score" in out
+
+
+def test_adx_verdict_thresholds():
+    assert adx_verdict(30) == "趨勢"
+    assert adx_verdict(25) == "趨勢"
+    assert adx_verdict(22) == "偏趨勢"
+    assert adx_verdict(19.9) == "盤整"
+    assert adx_verdict(None) == "N/A"
+    assert adx_verdict(float("nan")) == "N/A"
+
+
+def test_adx_verdict_accepts_nan():
+    import numpy as np
+
+    assert adx_verdict(np.nan) == "N/A"

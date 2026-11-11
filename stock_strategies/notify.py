@@ -92,7 +92,10 @@ def _format_stock_detail(s: dict, show_trend: bool = True) -> list[str]:
     if c.get("adx") is not None or c.get("rsi") is not None:
         ta_parts = []
         if c.get("adx") is not None:
-            ta_parts.append(f"ADX {c['adx']:.0f}")
+            v = c.get("adx_verdict") or ""
+            ta_parts.append(
+                f"ADX {c['adx']:.0f}（{v}）" if v and v != "N/A" else f"ADX {c['adx']:.0f}"
+            )
         if c.get("rsi") is not None:
             ta_parts.append(f"RSI {c['rsi']:.0f}")
         if c.get("wr") is not None:

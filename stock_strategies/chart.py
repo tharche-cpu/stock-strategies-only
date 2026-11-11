@@ -10,6 +10,8 @@ from __future__ import annotations
 import io
 from typing import Optional
 
+from .indicators import adx_verdict
+
 DEFAULT_LOOKBACK = 60
 
 
@@ -108,6 +110,15 @@ def render_trend_chart(
             ax_adx.legend(loc="upper left", fontsize=8, ncol=3)
             ax_adx.grid(alpha=0.25)
             ax_adx.tick_params(labelsize=7)
+            latest_adx = float(adx[ok_adx][-1]) if np.any(ok_adx) else None
+            en_v = {"趨勢": "TREND", "偏趨勢": "WEAK", "盤整": "RANGE"}
+            verdict_en = en_v.get(adx_verdict(latest_adx), "N/A")
+            ax_adx.text(
+                0.99, 0.93,
+                f"ADX {latest_adx:.0f} -> {verdict_en}",
+                transform=ax_adx.transAxes, fontsize=9, ha="right", va="top",
+                color="#2ca02c", fontweight="bold",
+            )
 
         if rsi is not None and np.any(~np.isnan(rsi)):
             ax_rsi = ax_others[-1]

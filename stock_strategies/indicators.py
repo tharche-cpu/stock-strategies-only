@@ -2,6 +2,27 @@ import pandas as pd
 import numpy as np
 
 
+ADX_TREND_LEVEL = 25.0
+ADX_WEAK_LEVEL = 20.0
+
+
+def adx_verdict(adx) -> str:
+    """把 ADX 數值轉成中文判讀：≥25 趨勢、≥20 偏趨勢、<20 盤整；無值回 N/A。"""
+    if adx is None:
+        return "N/A"
+    try:
+        adx = float(adx)
+    except (TypeError, ValueError):
+        return "N/A"
+    if np.isnan(adx):
+        return "N/A"
+    if adx >= ADX_TREND_LEVEL:
+        return "趨勢"
+    if adx >= ADX_WEAK_LEVEL:
+        return "偏趨勢"
+    return "盤整"
+
+
 def _talib():
     """惰性載入 TA-Lib；未安裝/不可用時回 None（不影響既有功能）。"""
     try:
@@ -111,10 +132,10 @@ def tech_score_at(row: pd.Series, params: dict | None = None) -> dict:
             score += max_per * 0.4
 
     if use_adx and pd.notna(row["adx"]):
-        if row["adx"] >= 25:
+        if row["adx"] >= ADX_TREND_LEVEL:
             score += max_per
             signals.append("ADX強勢趨勢")
-        elif row["adx"] >= 20:
+        elif row["adx"] >= ADX_WEAK_LEVEL:
             score += max_per * 0.4
 
     return {"score": int(round(score)), "signals": signals}

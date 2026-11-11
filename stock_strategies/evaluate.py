@@ -6,7 +6,7 @@ import pandas as pd
 
 from .config import CONFIG
 from .data import get_fundamental, get_price_history
-from .indicators import add_indicators, tech_score_at
+from .indicators import add_indicators, adx_verdict, tech_score_at
 from .backtest import backtest
 from .volume import detect_patterns, verdict as volume_verdict
 from .chips import chip_snapshot
@@ -263,6 +263,7 @@ def evaluate(stock_id: str, name: str, strategy: dict | None = None) -> Optional
                 ),
                 "suggested_lots": lots,
                 "adx": latest_adx,
+                "adx_verdict": adx_verdict(latest_adx),
                 "rsi": latest_rsi,
                 "wr": (float(latest["wr"]) if pd.notna(latest.get("wr")) else None),
                 "volume_patterns": vp["patterns"],
