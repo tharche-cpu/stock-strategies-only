@@ -1,6 +1,12 @@
 import os
 from pathlib import Path
 
+try:
+    from dotenv import load_dotenv  # 依執行目錄連同 .env（含 FINMIND_TOKEN 等）
+    load_dotenv()
+except Exception:
+    pass
+
 FINMIND_URL = "https://api.finmindtrade.com/api/v4/data"
 TELEGRAM_API = "https://api.telegram.org/bot{token}/sendMessage"
 

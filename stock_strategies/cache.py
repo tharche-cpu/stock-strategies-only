@@ -14,6 +14,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import requests
+import threading
 
 from .config import (
     CACHE_FRESH_DAYS,
@@ -66,6 +67,19 @@ def clear_cache(dataset: str | None = None, data_id: str | None = None) -> int:
 
 _last_request_monotonic = 0.0
 
+_per_key_locks: dict[str, threading.Lock] = {}
+_per_key_guard = threading.Lock()
+
+
+def _key_lock(key: str) -> threading.Lock:
+    """同 (dataset, data_id) 序列化、不同 key 互不阻塞；供並行掃描避開同檔 parquet 寫入 race。"""
+    with _per_key_guard:
+        lock = _per_key_locks.get(key)
+        if lock is None:
+            lock = threading.Lock()
+            _per_key_locks[key] = lock
+        return lock
+
 
 def _throttle() -> None:
     """全域最小間隔節流，避免瞬間爆量。"""
@@ -78,7 +92,7 @@ def _throttle() -> None:
 
 
 def _is_rate_limited(resp) -> bool:
-    if resp.status_code in (402, 429):
+    if resp.status_code in (402, 429, 403):
         return True
     try:
         body = resp.json()
@@ -185,7 +199,7 @@ def fetch_finmind_cached(
     *,
     fresh_days: int | None = None,
     force_refresh: bool = False,
-    timeout: int = 30,
+    timeout: int = 12,
     max_retries: int = RATE_LIMIT_MAX_RETRIES,
 ) -> pd.DataFrame:
     """帶 parquet 快取 + 限流退避的 FinMind 取數。
@@ -195,7 +209,27 @@ def fetch_finmind_cached(
     - 冷啟動 → 全抓並寫快取
     回傳已正規化 date（datetime64）、升冪排序、去重後的 DataFrame；
     最後依 [start_date, end_date] 切片（end_date 杜絕抓進未來）。
+    同 (dataset, data_id) 的並行呼叫以 per-key lock 序列化，避免 parquet 寫入 race。
     """
+    with _key_lock(f"{dataset}:{data_id}"):
+        return _fetch_finmind_cached(
+            dataset, data_id, start_date, end_date,
+            fresh_days=fresh_days, force_refresh=force_refresh,
+            timeout=timeout, max_retries=max_retries,
+        )
+
+
+def _fetch_finmind_cached(
+    dataset: str,
+    data_id: str,
+    start_date: str,
+    end_date: str | None,
+    *,
+    fresh_days: int | None,
+    force_refresh: bool,
+    timeout: int,
+    max_retries: int,
+) -> pd.DataFrame:
     cached = None if force_refresh else _read_cache(dataset, data_id)
 
     if cached is not None and not force_refresh and _is_fresh(dataset, data_id, fresh_days):

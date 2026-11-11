@@ -52,9 +52,10 @@ def fetch_finmind(
     return pd.DataFrame()
 
 
-def get_price_history(stock_id: str, years: int = 3, adjusted: bool = False) -> pd.DataFrame:
+def get_price_history(stock_id: str, years: int = 3, adjusted: bool = False,
+                      timeout: int = 30) -> pd.DataFrame:
     start = (datetime.now() - timedelta(days=365 * years + 60)).strftime("%Y-%m-%d")
-    df = fetch_finmind_cached("TaiwanStockPrice", stock_id, start)
+    df = fetch_finmind_cached("TaiwanStockPrice", stock_id, start, timeout=timeout)
     if df.empty:
         # FinMind 掛掉/空資料 → twstock 備援（同 schema，免 token；無除權息還原）
         try:

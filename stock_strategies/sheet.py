@@ -1,5 +1,6 @@
 import os
 import json
+from datetime import datetime
 
 import gspread
 from google.oauth2.service_account import Credentials
@@ -200,3 +201,83 @@ def write_performance(records: list[dict]):
 
     rows = [[r.get(h, "") for h in PERFORMANCE_HEADERS] for r in records]
     ws.append_rows(rows)
+
+
+SCAN_HEADERS = [
+    "scan_date",
+    "strategy",
+    "stock_id",
+    "name",
+    "signal_score",
+    "tech_score",
+    "backtest_winrate",
+    "samples",
+    "total_return",
+    "benchmark_0050",
+    "entry_price",
+    "stop_loss",
+    "target",
+    "rr",
+    "position_pct",
+    "lots",
+    "avg_turnover_wan",
+    "adx",
+    "adx_verdict",
+    "rsi",
+    "volume_verdict",
+    "tech_signals",
+    "risk_notes",
+]
+
+
+def scan_buy_row(s: dict, strategy_id: str = "default") -> list:
+    """把一筆 BUY 掃描結果轉成一列（對齊 SCAN_HEADERS）。"""
+    c = s.get("components", {})
+    return [
+        s.get("date", datetime.now().strftime("%Y-%m-%d")),
+        strategy_id,
+        s.get("stock_id", ""),
+        s.get("name", ""),
+        s.get("signal_score", ""),
+        c.get("tech_score", ""),
+        c.get("backtest_winrate", ""),
+        c.get("backtest_samples", ""),
+        c.get("backtest_total_return", ""),
+        c.get("benchmark_0050_return", ""),
+        s.get("entry_price", ""),
+        s.get("stop_loss_price", ""),
+        s.get("target_price", ""),
+        s.get("risk_reward_ratio", ""),
+        s.get("position_size_pct", ""),
+        s.get("suggested_lots", ""),
+        None if c.get("avg_turnover_20d") is None else round(c["avg_turnover_20d"] / 10_000, 0),
+        c.get("adx", ""),
+        c.get("adx_verdict", ""),
+        c.get("rsi", ""),
+        c.get("volume_verdict", ""),
+        ", ".join(c.get("tech_signals", [])),
+        " / ".join(s.get("risk_notes", [])),
+    ]
+
+
+def write_scan_tab(buy_records: list[dict], strategy_id: str = "default"):
+    """把掃描命中的 BUY 寫入「BUY掃描」分頁；同一 scan_date 重跑會覆蓋當日列。"""
+    if not buy_records:
+        return
+    sh = get_gsheet()
+    try:
+        ws = sh.worksheet("BUY掃描")
+    except gspread.WorksheetNotFound:
+        ws = sh.add_worksheet(title="BUY掃描", rows=2000, cols=40)
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    values = ws.get_all_values()
+    if values and values[0] != SCAN_HEADERS:
+        ws.clear()
+        ws.append_row(SCAN_HEADERS)
+        values = [SCAN_HEADERS]
+
+    rows = [scan_buy_row(s, strategy_id) for s in buy_records]
+    keep = values[:1] + [r for r in values[1:] if (not r or r[0] != today)]
+    ws.clear()
+    ws.append_rows(keep + rows)
