@@ -25,3 +25,7 @@ speech-to-text-*.json
 
 # Local scheduled-task logs
 logs/
+*.log
+
+# Next.js build cache
+web/tsconfig.tsbuildinfo
