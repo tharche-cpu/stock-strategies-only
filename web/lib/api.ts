@@ -20,6 +20,38 @@ export type RunResult = {
   results: any[];
 };
 
+export type PerfRecord = {
+  signal_date: string;
+  stock_id: string;
+  name: string;
+  entry_close?: any;
+  entry_open?: any;
+  t5_date?: string;
+  t5_close?: any;
+  t5_ret?: any;
+  t10_date?: string;
+  t10_close?: any;
+  t10_ret?: any;
+  t20_date?: string;
+  t20_close?: any;
+  t20_ret?: any;
+  hit_target?: string;
+  hit_stop?: string;
+  status?: string;
+};
+
+export type PerformanceData = {
+  records: PerfRecord[];
+  summary: {
+    count: number;
+    winrate_t20: number | null;
+    avg_t20: number | null;
+    hit_target: number;
+    hit_stop: number;
+  } | null;
+  error?: string | null;
+};
+
 async function jfetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     ...init,
@@ -52,6 +84,7 @@ export const api = {
     }),
   getMarket: () => jfetch<any>("/api/market"),
   getWatchlist: () => jfetch<{ items: any[]; error?: string }>("/api/watchlist"),
+  getPerformance: () => jfetch<PerformanceData>("/api/performance"),
   run: (strategy_id: string, limit?: number) =>
     jfetch<RunResult>("/api/run", {
       method: "POST",

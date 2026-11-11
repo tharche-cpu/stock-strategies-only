@@ -13,6 +13,7 @@
   POST   /api/strategies/generate     AI 生策略 (Gemini)
   GET    /api/market                  目前大盤狀態
   GET    /api/watchlist               讀 watchlist
+  GET    /api/performance             讀 Performance 成績單 + 摘要
   POST   /api/run                     用指定策略跑一次完整評分
 """
 
@@ -37,7 +38,8 @@ except ImportError:
 from stock_strategies import loader
 from stock_strategies.evaluate import evaluate
 from stock_strategies.market import apply_market_filter, get_market_state
-from stock_strategies.sheet import read_watchlist
+from stock_strategies.performance import summary as perf_summary
+from stock_strategies.sheet import read_performance, read_watchlist
 
 from api.services.ai_generator import generate_strategy_with_ai
 
@@ -142,6 +144,18 @@ def watchlist():
     except Exception as e:
         # 沒設定 Google Sheet 時不要整個 500
         return {"items": [], "error": str(e)}
+
+
+@app.get("/api/performance")
+def performance():
+    """讀 Google Sheet Performance 分頁的訊號追蹤成績單 + 摘要統計。"""
+    try:
+        records = read_performance()
+        stats = perf_summary(records)
+        return {"records": records, "summary": stats, "error": None}
+    except Exception as e:
+        # 沒設定 Google Sheet 或 Performance 分頁不存在時不要整個 500
+        return {"records": [], "summary": None, "error": str(e)}
 
 
 @app.post("/api/run")
